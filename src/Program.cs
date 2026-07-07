@@ -548,7 +548,7 @@ namespace Wdrozyciel
             btnDownload = new Button { Text = "POBIERZ aktualne wersje\r\n(wymaga internetu)", Location = new Point(bx, 120), Size = new Size(215, 50), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnInstall = new Button { Text = "ZAINSTALUJ zaznaczone\r\n(offline, z repo)", Location = new Point(bx, 180), Size = new Size(215, 50), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             btnInstall.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-            chkHash = new CheckBox { Text = "Weryfikuj SHA256 przed instalacja", Location = new Point(bx, 238), AutoSize = true, Checked = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            chkHash = new CheckBox { Text = "Weryfikuj sumy SHA256", Location = new Point(bx, 240), Size = new Size(215, 20), Checked = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
 
             var grp = new GroupBox { Text = "Domena AD", Location = new Point(bx, 266), Size = new Size(215, 246), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             var lblDomName = new Label { Text = Domain, Location = new Point(10, 20), AutoSize = true, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
