@@ -1,0 +1,65 @@
+{
+  "apps": [
+    {
+      "id": "firefox",
+      "name": "Mozilla Firefox",
+      "category": "Przegladarki",
+      "wingetId": "Mozilla.Firefox",
+      "locale": "pl-PL",
+      "exeArgs": "/S",
+      "msiArgs": "/qn",
+      "directUrl": "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=pl"
+    },
+    {
+      "id": "chrome",
+      "name": "Google Chrome",
+      "category": "Przegladarki",
+      "wingetId": "Google.Chrome",
+      "exeArgs": "/silent /install",
+      "msiArgs": "/qn",
+      "directUrl": "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
+    },
+    {
+      "id": "adobe-reader",
+      "name": "Adobe Acrobat Reader",
+      "category": "Biurowe",
+      "wingetId": "Adobe.Acrobat.Reader.64-bit",
+      "exeArgs": "/sAll /rs /msi EULA_ACCEPT=YES",
+      "msiArgs": "/qn"
+    },
+    {
+      "id": "libreoffice",
+      "name": "LibreOffice",
+      "category": "Biurowe",
+      "wingetId": "TheDocumentFoundation.LibreOffice",
+      "exeArgs": "/S",
+      "msiArgs": "/qn ALLUSERS=1"
+    },
+    {
+      "id": "vlc",
+      "name": "VLC media player",
+      "category": "Multimedia",
+      "wingetId": "VideoLAN.VLC",
+      "exeArgs": "/S",
+      "msiArgs": "/qn"
+    },
+    {
+      "id": "everything",
+      "name": "Everything (voidtools)",
+      "category": "Narzedzia",
+      "wingetId": "voidtools.Everything",
+      "exeArgs": "/S",
+      "msiArgs": "/qn"
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "category": "Narzedzia",
+      "wingetId": "Microsoft.VisualStudioCode",
+      "scope": "machine",
+      "exeArgs": "/VERYSILENT /NORESTART /MERGETASKS=!runcode",
+      "msiArgs": "/qn",
+      "directUrl": "https://update.code.visualstudio.com/latest/win32-x64/stable"
+    }
+  ]
+}
