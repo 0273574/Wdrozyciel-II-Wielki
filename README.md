@@ -1,7 +1,5 @@
 # Wdrożyciel II Wielki
 
-> Naprawianie na podstawie wywiadu z pracownikami https://github.com/0273574/Wdrozyciel-II-Wielki/issues/1
-
 Wersja 21.37
 
 Narzędzie do masowych wdrożeń komputerów z systemem Windows. Składa się z jednego
