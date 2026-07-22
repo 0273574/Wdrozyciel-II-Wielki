@@ -6,50 +6,62 @@
       "category": "Przegladarki",
       "wingetId": "Mozilla.Firefox",
       "locale": "pl-PL",
+      "scope": "machine",
       "exeArgs": "/S",
-      "msiArgs": "/qn",
-      "directUrl": "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=pl"
+      "msiArgs": "/qn ALLUSERS=1",
+      "directUrl": "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=pl",
+      "shortcutTarget": "%ProgramFiles%\\Mozilla Firefox\\firefox.exe|%ProgramFiles(x86)%\\Mozilla Firefox\\firefox.exe"
     },
     {
       "id": "chrome",
       "name": "Google Chrome",
       "category": "Przegladarki",
       "wingetId": "Google.Chrome",
+      "scope": "machine",
       "exeArgs": "/silent /install",
-      "msiArgs": "/qn",
-      "directUrl": "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
+      "msiArgs": "/qn ALLUSERS=1",
+      "directUrl": "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi",
+      "shortcutTarget": "%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe|%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe"
     },
     {
       "id": "adobe-reader",
       "name": "Adobe Acrobat Reader",
       "category": "Biurowe",
       "wingetId": "Adobe.Acrobat.Reader.64-bit",
-      "exeArgs": "/sAll /rs /msi EULA_ACCEPT=YES",
-      "msiArgs": "/qn"
+      "scope": "machine",
+      "exeArgs": "/sAll /rs /rps /msi EULA_ACCEPT=YES DISABLE_ARM_SERVICE_INSTALL=0",
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe|%ProgramFiles%\\Adobe\\Acrobat Reader DC\\Reader\\AcroRd32.exe|%ProgramFiles(x86)%\\Adobe\\Acrobat Reader DC\\Reader\\AcroRd32.exe"
     },
     {
       "id": "libreoffice",
       "name": "LibreOffice",
       "category": "Biurowe",
       "wingetId": "TheDocumentFoundation.LibreOffice",
+      "scope": "machine",
       "exeArgs": "/S",
-      "msiArgs": "/qn ALLUSERS=1"
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\LibreOffice\\program\\soffice.exe"
     },
     {
       "id": "vlc",
       "name": "VLC media player",
       "category": "Multimedia",
       "wingetId": "VideoLAN.VLC",
+      "scope": "machine",
       "exeArgs": "/S",
-      "msiArgs": "/qn"
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\VideoLAN\\VLC\\vlc.exe|%ProgramFiles(x86)%\\VideoLAN\\VLC\\vlc.exe"
     },
     {
       "id": "everything",
       "name": "Everything (voidtools)",
       "category": "Narzedzia",
       "wingetId": "voidtools.Everything",
+      "scope": "machine",
       "exeArgs": "/S",
-      "msiArgs": "/qn"
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\Everything\\Everything.exe|%ProgramFiles(x86)%\\Everything\\Everything.exe"
     },
     {
       "id": "vscode",
@@ -57,9 +69,63 @@
       "category": "Narzedzia",
       "wingetId": "Microsoft.VisualStudioCode",
       "scope": "machine",
-      "exeArgs": "/VERYSILENT /NORESTART /MERGETASKS=!runcode",
-      "msiArgs": "/qn",
-      "directUrl": "https://update.code.visualstudio.com/latest/win32-x64/stable"
+      "exeArgs": "/VERYSILENT /NORESTART /ALLUSERS /MERGETASKS=!runcode",
+      "msiArgs": "/qn ALLUSERS=1",
+      "directUrl": "https://update.code.visualstudio.com/latest/win32-x64/stable",
+      "shortcutTarget": "%ProgramFiles%\\Microsoft VS Code\\Code.exe"
+    },
+    {
+      "id": "notepadpp",
+      "name": "Notepad++",
+      "category": "Narzedzia",
+      "wingetId": "Notepad++.Notepad++",
+      "scope": "machine",
+      "exeArgs": "/S",
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\Notepad++\\notepad++.exe|%ProgramFiles(x86)%\\Notepad++\\notepad++.exe"
+    },
+    {
+      "id": "inkscape",
+      "name": "Inkscape",
+      "category": "Grafika",
+      "wingetId": "Inkscape.Inkscape",
+      "scope": "machine",
+      "exeArgs": "/S",
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\Inkscape\\bin\\inkscape.exe"
+    },
+    {
+      "id": "gimp2",
+      "name": "GIMP 2.0",
+      "category": "Grafika",
+      "wingetId": "GIMP.GIMP.2",
+      "scope": "machine",
+      "exeArgs": "/VERYSILENT /NORESTART /ALLUSERS",
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\GIMP 2\\bin\\gimp-2.10.exe|%ProgramFiles%\\GIMP 2\\bin\\gimp.exe"
+    },
+    {
+      "id": "krita",
+      "name": "Krita 5.3.2.1",
+      "category": "Grafika",
+      "wingetId": "KDE.Krita",
+      "scope": "machine",
+      "exeArgs": "/S",
+      "msiArgs": "/qn ALLUSERS=1",
+      "directUrl": "https://download.kde.org/stable/krita/5.3.2.1/krita-x64-5.3.2.1-setup.exe",
+      "directOnly": true,
+      "versionOverride": "5.3.2.1",
+      "shortcutTarget": "%ProgramFiles%\\Krita (x64)\\bin\\krita.exe|%ProgramFiles%\\Krita\\bin\\krita.exe"
+    },
+    {
+      "id": "7zip",
+      "name": "7-Zip",
+      "category": "Narzedzia",
+      "wingetId": "7zip.7zip",
+      "scope": "machine",
+      "exeArgs": "/S",
+      "msiArgs": "/qn ALLUSERS=1",
+      "shortcutTarget": "%ProgramFiles%\\7-Zip\\7zFM.exe|%ProgramFiles(x86)%\\7-Zip\\7zFM.exe"
     }
   ]
 }
