@@ -1,0 +1,5 @@
+# Dokładne identyfikatory z polecenia:
+# winget list --accept-source-agreements --disable-interactivity
+#
+# Wpisuj po jednym ID w wierszu. Poniższy wiersz jest tylko przykładem:
+# Microsoft.Teams

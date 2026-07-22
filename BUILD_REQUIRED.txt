@@ -1,0 +1,7 @@
+Ten pakiet zawiera kod wersji 21.38. Plik EXE z wersji 21.37 został celowo usunięty,
+aby nie można było pomylić starej aplikacji z nowym kodem.
+
+Aby zbudować i uruchomić EXE na Windows, kliknij BUILD_AND_RUN.cmd.
+Możesz też uruchomić ręcznie src\build.cmd; wynik powstanie w katalogu głównym.
+
+Opcje podpisywania opisano w SIGNING.md.

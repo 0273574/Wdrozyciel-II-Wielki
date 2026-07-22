@@ -1,0 +1,9 @@
+# Maski pakietów Appx do usunięcia dla wszystkich użytkowników.
+# Jedna maska na wiersz. Linie zaczynające się od # są ignorowane.
+# Najpierw użyj przycisku „Lista zainstalowanych (winget list)” lub poleceń
+# Get-AppxPackage -AllUsers i Get-AppxProvisionedPackage -Online, aby potwierdzić nazwy.
+#
+# Przykłady (odkomentuj świadomie):
+# Microsoft.XboxGamingOverlay
+# Microsoft.XboxApp
+# Microsoft.GetHelp
