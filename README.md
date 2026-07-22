@@ -1,6 +1,9 @@
 # Wdrożyciel II Wielki
 
-Wersja 21.37
+Wersja 21.37 - fixed
+
+
+> Naprawianie na podstawie wywiadu z pracownikami https://github.com/0273574/Wdrozyciel-II-Wielki/issues/1
 
 Narzędzie do masowych wdrożeń komputerów z systemem Windows. Składa się z jednego
 pliku wykonywalnego `Wdrozyciel.exe`, który pobiera aktualne wersje firmowego
