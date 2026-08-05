@@ -1,0 +1,27 @@
+# --- Build output ---
+# EXE jest budowany ze źródeł (BUILD.cmd) i publikowany w Releases,
+# więc nie trzymamy go w repozytorium.
+/Wdrozyciel.exe
+*.exe
+!tools/**/*.exe
+*.pdb
+
+# --- Dane runtime i offline repo ---
+.wdrozyciel/
+/logs/
+*.log
+
+# --- Certyfikaty i sekrety (NIGDY nie commitować) ---
+*.pfx
+*.snk
+*.p12
+SIGN_PFX*
+*password*
+
+# --- Windows / edytory ---
+Thumbs.db
+desktop.ini
+.vs/
+.vscode/
+*.user
+*.suo

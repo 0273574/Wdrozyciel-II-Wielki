@@ -1,0 +1,47 @@
+name: "🐛 Zgłoszenie błędu"
+description: Coś nie działa jak powinno
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Opis błędu
+      description: Co się dzieje i czego się spodziewałeś?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Kroki do odtworzenia
+      placeholder: |
+        1. Uruchom aplikację jako administrator
+        2. Zaznacz '...'
+        3. Kliknij '...'
+        4. Widzę błąd '...'
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: System
+      options:
+        - Windows 11
+        - Windows 10
+        - Inny (opisz poniżej)
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Tryb
+      options:
+        - Offline (z lokalnego repo)
+        - Online (winget / bezpośredni URL)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: "Wklej istotny fragment z `.wdrozyciel` lub `logs/`. Usuń dane wrażliwe (hosty, loginy)."
+      render: text

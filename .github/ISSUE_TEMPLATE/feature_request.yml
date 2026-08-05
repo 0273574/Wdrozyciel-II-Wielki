@@ -1,0 +1,16 @@
+name: "💡 Propozycja / nowy program"
+description: Pomysł na funkcję albo program do dodania w apps.json
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Opis propozycji
+      description: Co i po co? Jeśli to nowy program — podaj jego winget ID.
+    validations:
+      required: true
+  - type: input
+    id: winget
+    attributes:
+      label: "winget ID (jeśli dotyczy)"
+      placeholder: "np. Notepad++.Notepad++"
