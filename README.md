@@ -1,4 +1,4 @@
-# Wdrożyciel II Wielki 21.38
+# Wdrożyciel II Wielki 21.37
 
 WinForms/.NET Framework — instalator offline, narzędzia administracyjne, lokalne
 skrypty PowerShell i obsługa dołączania komputerów do domeny.
@@ -40,17 +40,29 @@ bezpieczny przykład `Przyklad-informacje-o-systemie.ps1`.
 - ręczne lub domyślne ID z `winget-remove-defaults.txt` i ciche odinstalowanie przez `winget uninstall`;
 - maksymalny stan procesora 100% dla AC i DC we wszystkich widocznych planach;
 - wyłączenie szybkiego uruchamiania (`HiberbootEnabled=0`);
-- pobranie i interaktywne uruchomienie OfficeScrubber oraz McAfee MCPR;
+- zweryfikowane sumą SHA-256 czyszczenie OfficeScrubber: zalecany tryb dla
+  fabrycznie preinstalowanego Office (Microsoft 365/Click-to-Run i UWP) oraz
+  osobny, dodatkowo potwierdzany tryb pełny dla starszych instalacji MSI;
+- pobranie i interaktywne uruchomienie McAfee MCPR;
 - usuwanie podanych masek Appx dla wszystkich istniejących użytkowników oraz
   usuwanie pakietów provisioned dla nowych użytkowników.
 
 ## Pobieranie i wdrożenie offline
 
 1. Na komputerze z internetem zaznacz programy i kliknij **POBIERZ aktualne wersje**.
-2. Aplikacja zapisze instalatory w `repo`, sumy SHA-256 i dane w `manifest.json`.
-3. Skopiuj cały katalog na nośnik lub udział sieciowy.
+2. Aplikacja zapisze instalatory w ukrytym katalogu `.wdrozyciel\repo`, sumy
+   SHA-256 i dane w `.wdrozyciel\manifest.json`.
+3. Skopiuj cały katalog na nośnik lub udział sieciowy. Nie pomijaj ukrytego
+   katalogu `.wdrozyciel` — to w nim znajdują się pliki potrzebne offline.
 4. Na komputerze docelowym uruchom aplikację jako administrator i kliknij
    **ZAINSTALUJ zaznaczone**.
+
+Przycisk **PRZYGOTUJ KOMPUTER (offline)** wykonuje cały podstawowy przebieg w
+jednym kroku: opcjonalnie wyłącza szybkie uruchamianie, instaluje zaznaczone
+programy wyłącznie z lokalnego repozytorium, może usunąć fabryczny Office i na
+końcu otworzyć Windows Update. Przed startem sprawdzana jest obecność wszystkich
+potrzebnych plików. Domyślnie program pomija aplikacje w tej samej lub nowszej
+wersji, co skraca ponowne wdrożenia.
 
 Tryb bez GUI:
 

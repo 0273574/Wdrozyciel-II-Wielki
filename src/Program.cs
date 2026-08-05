@@ -20,15 +20,34 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("Wdrozyciel II Wielki")]
 [assembly: System.Reflection.AssemblyProduct("Wdrozyciel II Wielki")]
 [assembly: System.Reflection.AssemblyCompany("Gliwice Cloud")]
-[assembly: System.Reflection.AssemblyVersion("21.38.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("21.38.0.0")]
+[assembly: System.Reflection.AssemblyVersion("21.37.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("21.37.0.0")]
 
 namespace Wdrozyciel
 {
     static class App
     {
         public const string Title = "Wdro\u017cyciel II Wielki";
-        public const string Version = "21.38";
+        public const string Version = "21.37";
+    }
+
+    static class DataLocation
+    {
+        public const string PortableFolderName = ".wdrozyciel";
+
+        public static string Resolve(string executableDirectory)
+        {
+            string path = Path.Combine(executableDirectory, PortableFolderName);
+            Directory.CreateDirectory(path);
+            try
+            {
+                FileAttributes attrs = File.GetAttributes(path);
+                if ((attrs & FileAttributes.Hidden) == 0)
+                    File.SetAttributes(path, attrs | FileAttributes.Hidden);
+            }
+            catch { }
+            return path;
+        }
     }
 
     class AppEntry
@@ -144,7 +163,7 @@ namespace Wdrozyciel
                     ShortcutName="Google Chrome", ShortcutTarget="%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe" },
                 new AppEntry { Id="adobe-reader", Name="Adobe Acrobat Reader", Category="Biurowe",
                     WingetId="Adobe.Acrobat.Reader.64-bit", Scope="machine",
-                    ExeArgs="/sAll /rs /rps /msi EULA_ACCEPT=YES ALLUSERS=1", MsiArgs="/qn ALLUSERS=1",
+                    ExeArgs="-sfx_nu /sAll /rs /rps /msi EULA_ACCEPT=YES ALLUSERS=1", MsiArgs="/qn ALLUSERS=1",
                     ShortcutName="Adobe Acrobat", ShortcutTarget="%ProgramFiles%\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe|%ProgramFiles%\\Adobe\\Acrobat Reader DC\\Reader\\AcroRd32.exe" },
                 new AppEntry { Id="libreoffice", Name="LibreOffice", Category="Biurowe",
                     WingetId="TheDocumentFoundation.LibreOffice", Scope="machine", ExeArgs="/S", MsiArgs="/qn ALLUSERS=1",
@@ -167,7 +186,7 @@ namespace Wdrozyciel
                     WingetId="Inkscape.Inkscape", Scope="machine", ExeArgs="/S", MsiArgs="/qn ALLUSERS=1",
                     ShortcutName="Inkscape", ShortcutTarget="%ProgramFiles%\\Inkscape\\bin\\inkscape.exe|%ProgramFiles%\\Inkscape\\inkscape.exe" },
                 new AppEntry { Id="gimp", Name="GIMP 2.x", Category="Grafika",
-                    WingetId="GIMP.GIMP", Scope="machine", ExeArgs="/VERYSILENT /NORESTART /ALLUSERS", MsiArgs="/qn ALLUSERS=1",
+                    WingetId="GIMP.GIMP.2", Scope="machine", ExeArgs="/VERYSILENT /NORESTART /ALLUSERS", MsiArgs="/qn ALLUSERS=1",
                     ShortcutName="GIMP", ShortcutTarget="%ProgramFiles%\\GIMP 2\\bin\\gimp-2.10.exe" },
                 new AppEntry { Id="krita", Name="Krita 5.3.2.1", Category="Grafika",
                     WingetId="", Scope="machine", ExeArgs="/S", MsiArgs="/qn ALLUSERS=1",
@@ -667,8 +686,21 @@ namespace Wdrozyciel
 
         public bool InstallOne(AppEntry app, bool checkHash)
         {
+            return InstallOne(app, checkHash, false);
+        }
+
+        public bool InstallOne(AppEntry app, bool checkHash, bool skipCurrent)
+        {
             string path = app.InstallerPath(RepoDir);
             if (path == null || !File.Exists(path)) { Log("BLAD: brak instalatora w repo."); return false; }
+
+            string installedVersion;
+            if (skipCurrent && IsCurrentOrNewerInstalled(app, out installedVersion))
+            {
+                Log("POMINIETO: zainstalowana wersja " + installedVersion + " jest taka sama lub nowsza od repo " + app.Version + ".");
+                RunPostInstall(app);
+                return true;
+            }
 
             if (checkHash && !string.IsNullOrEmpty(app.Sha256))
             {
@@ -719,7 +751,46 @@ namespace Wdrozyciel
             return true;
         }
 
-        static bool SuccessCode(int code) { return code == 0 || code == 3010 || code == 1641; }
+        static bool SuccessCode(int code) { return code == 0 || code == 1638 || code == 3010 || code == 1641; }
+
+        bool IsCurrentOrNewerInstalled(AppEntry app, out string installedVersion)
+        {
+            installedVersion = "";
+            if (string.IsNullOrEmpty(app.Version) || string.IsNullOrEmpty(app.ShortcutTarget)) return false;
+
+            string target = FindExistingTarget(app.ShortcutTarget);
+            if (target == null) return false;
+            try
+            {
+                FileVersionInfo info = FileVersionInfo.GetVersionInfo(target);
+                installedVersion = !string.IsNullOrEmpty(info.ProductVersion) ? info.ProductVersion : info.FileVersion;
+                if (string.IsNullOrEmpty(installedVersion)) return false;
+                return CompareNumericVersions(installedVersion, app.Version) >= 0;
+            }
+            catch { return false; }
+        }
+
+        static int CompareNumericVersions(string left, string right)
+        {
+            MatchCollection lm = Regex.Matches(left ?? "", @"\d+");
+            MatchCollection rm = Regex.Matches(right ?? "", @"\d+");
+            if (lm.Count == 0 || rm.Count == 0) return -1;
+            int count = Math.Max(lm.Count, rm.Count);
+            for (int i = 0; i < count; i++)
+            {
+                long lv = i < lm.Count ? ParseVersionPart(lm[i].Value) : 0;
+                long rv = i < rm.Count ? ParseVersionPart(rm[i].Value) : 0;
+                if (lv < rv) return -1;
+                if (lv > rv) return 1;
+            }
+            return 0;
+        }
+
+        static long ParseVersionPart(string value)
+        {
+            long parsed;
+            return long.TryParse(value, out parsed) ? parsed : 0;
+        }
 
         static int RunInstaller(string path, string silentArgs, string scope)
         {
@@ -923,7 +994,7 @@ namespace Wdrozyciel
 
         static void HeadlessDownload(string[] ids)
         {
-            Engine eng = new Engine(AppDomain.CurrentDomain.BaseDirectory);
+            Engine eng = new Engine(DataLocation.Resolve(AppDomain.CurrentDomain.BaseDirectory));
             string logf = Path.Combine(eng.LogDir, string.Format("download-{0:yyyyMMdd-HHmmss}.log", DateTime.Now));
             eng.Log = delegate(string s)
             {
@@ -952,17 +1023,20 @@ namespace Wdrozyciel
         CheckedListBox clbScripts;
         ProgressBar pb;
         Label lblStatus, lblDomStatus, lblJoined, lblScriptFolder;
-        Button btnAll, btnNone, btnDownload, btnInstall, btnJoin, btnRename;
+        Button btnAll, btnNone, btnDownload, btnInstall, btnPrepare, btnJoin, btnRename;
         Button btnScriptsRefresh, btnScriptsOpen, btnScriptsRun, btnWingetList, btnPower100, btnFastStartup;
         Button btnOfficeScrubber, btnMcAfee, btnAppxLoad, btnAppxRemove, btnWingetLoad, btnWingetRemove;
         TabControl toolsSubTabs;
-        CheckBox chkHash;
+        CheckBox chkHash, chkPrepareFast, chkPrepareOffice, chkPrepareUpdate, chkSkipInstalled;
         string logFilePath;
         bool domainChecking, suppressCheck;
         volatile bool domainUp;
+        volatile bool restartPending;
+        volatile bool workerRunning;
 
         public MainForm()
         {
+            AutoScaleMode = AutoScaleMode.None;
             Text = App.Title + " - wersja " + App.Version;
             ClientSize = new Size(920, 780);
             MinimumSize = new Size(840, 700);
@@ -970,10 +1044,11 @@ namespace Wdrozyciel
             Font = new Font("Segoe UI", 9f);
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
-            eng = new Engine(AppDomain.CurrentDomain.BaseDirectory);
+            eng = new Engine(DataLocation.Resolve(AppDomain.CurrentDomain.BaseDirectory));
             logFilePath = Path.Combine(eng.LogDir, string.Format("gui-{0}-{1:yyyyMMdd-HHmmss}.log", Environment.MachineName, DateTime.Now));
             eng.Log = Log;
             eng.Status = Status;
+            FormClosing += MainFormClosing;
 
             TabControl tabs = new TabControl { Location = new Point(10, 10), Size = new Size(900, 500), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             TabPage tabApps = new TabPage("Programy i domena");
@@ -1002,14 +1077,32 @@ namespace Wdrozyciel
             CheckDomainAsync();
         }
 
+        void MainFormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (workerRunning && MessageBox.Show(
+                "Przygotowanie lub inne zadanie nadal trwa. Zamkniecie aplikacji moze przerwac prace.\n\nMimo to zamknac?",
+                App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
+            if (!restartPending) return;
+            if (MessageBox.Show(
+                "Zmiana nazwy komputera lub dolaczenie do domeny wymaga restartu.\n\nUruchomic komputer ponownie teraz?",
+                App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            restartPending = false;
+            try { Process.Start(new ProcessStartInfo("shutdown.exe", "/r /t 0") { UseShellExecute = false, CreateNoWindow = true }); }
+            catch (Exception ex) { MessageBox.Show("Nie udalo sie uruchomic ponownie komputera: " + ex.Message, App.Title, MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        }
+
         void BuildAppsTab(TabPage tab)
         {
             Label lblTop = new Label {
                 Text = "Zaznacz programy, potem: Pobierz (online) lub Zainstaluj (offline z repo). Instalacja jest maszynowa.",
                 Location = new Point(10, 10), AutoSize = true
             };
-            tv = new TreeView { Location = new Point(10, 35), Size = new Size(610, 420), CheckBoxes = true,
-                ShowLines = false, FullRowSelect = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom };
+            tv = new TreeView { Location = new Point(10, 35), Size = new Size(610, 318), CheckBoxes = true,
+                ShowLines = false, FullRowSelect = true, Anchor = AnchorStyles.Top | AnchorStyles.Left };
             tv.AfterCheck += delegate(object s, TreeViewEventArgs e)
             {
                 if (suppressCheck) return;
@@ -1026,13 +1119,21 @@ namespace Wdrozyciel
             };
 
             int bx = 635;
-            btnAll = new Button { Text = "Zaznacz wszystko", Location = new Point(bx, 35), Size = new Size(235, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            btnNone = new Button { Text = "Odznacz wszystko", Location = new Point(bx, 70), Size = new Size(235, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            btnDownload = new Button { Text = "POBIERZ aktualne wersje\r\n(wymaga internetu)", Location = new Point(bx, 112), Size = new Size(235, 50), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            btnInstall = new Button { Text = "ZAINSTALUJ zaznaczone\r\n(offline, z repo)", Location = new Point(bx, 170), Size = new Size(235, 50), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
-            chkHash = new CheckBox { Text = "Weryfikuj sumy SHA256", Location = new Point(bx, 228), Size = new Size(235, 20), Checked = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            btnAll = new Button { Text = "Zaznacz wszystko", Location = new Point(bx, 35), Size = new Size(235, 30) };
+            btnNone = new Button { Text = "Odznacz wszystko", Location = new Point(bx, 70), Size = new Size(235, 30) };
+            btnDownload = new Button { Text = "POBIERZ aktualne wersje\r\n(wymaga internetu)", Location = new Point(bx, 112), Size = new Size(235, 50) };
+            btnInstall = new Button { Text = "ZAINSTALUJ zaznaczone\r\n(offline, z repo)", Location = new Point(bx, 170), Size = new Size(235, 50), Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+            chkHash = new CheckBox { Text = "Weryfikuj sumy SHA256", Location = new Point(bx, 228), Size = new Size(235, 20), Checked = true };
 
-            GroupBox grp = new GroupBox { Text = "Domena AD", Location = new Point(bx, 255), Size = new Size(235, 200), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            GroupBox prepare = new GroupBox { Text = "Szybkie przygotowanie offline", Location = new Point(10, 360), Size = new Size(610, 95) };
+            chkPrepareFast = new CheckBox { Text = "Wylacz szybkie uruchamianie", Location = new Point(12, 22), Size = new Size(195, 22), Checked = true };
+            chkPrepareOffice = new CheckBox { Text = "Wyczysc fabryczny Office", Location = new Point(12, 50), Size = new Size(195, 22), Checked = true };
+            chkPrepareUpdate = new CheckBox { Text = "Otworz Windows Update", Location = new Point(215, 22), Size = new Size(180, 22), Checked = true };
+            chkSkipInstalled = new CheckBox { Text = "Pomin aktualne programy", Location = new Point(215, 50), Size = new Size(180, 22), Checked = true };
+            btnPrepare = new Button { Text = "PRZYGOTUJ KOMPUTER\r\n(offline)", Location = new Point(405, 22), Size = new Size(190, 52), Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+            prepare.Controls.AddRange(new Control[] { chkPrepareFast, chkPrepareOffice, chkPrepareUpdate, chkSkipInstalled, btnPrepare });
+
+            GroupBox grp = new GroupBox { Text = "Domena AD", Location = new Point(bx, 255), Size = new Size(235, 200) };
             Label lblDomName = new Label { Text = Domain, Location = new Point(10, 20), AutoSize = true, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
             lblDomStatus = new Label { Text = "Sprawdzam domene...", Location = new Point(10, 40), AutoSize = true, ForeColor = Color.Gray };
             txtHostname = new TextBox { Location = new Point(10, 64), Size = new Size(215, 23), Text = Environment.MachineName };
@@ -1043,7 +1144,7 @@ namespace Wdrozyciel
             lblJoined = new Label { Text = "", Location = new Point(10, 202), AutoSize = true, ForeColor = Color.DimGray };
             grp.Controls.AddRange(new Control[] { lblDomName, lblDomStatus, txtHostname, btnRename, txtDomUser, txtDomPass, btnJoin });
 
-            tab.Controls.AddRange(new Control[] { lblTop, tv, btnAll, btnNone, btnDownload, btnInstall, chkHash, grp, lblJoined });
+            tab.Controls.AddRange(new Control[] { lblTop, tv, prepare, btnAll, btnNone, btnDownload, btnInstall, chkHash, grp, lblJoined });
             lblJoined.Location = new Point(bx + 2, 460);
 
             btnAll.Click += delegate { CheckAllNodes(true); };
@@ -1058,9 +1159,13 @@ namespace Wdrozyciel
             {
                 List<AppEntry> selected = Selected();
                 bool verifyHash = chkHash.Checked;
+                bool skipCurrent = chkSkipInstalled.Checked;
                 if (selected.Count == 0) { MessageBox.Show("Nie zaznaczono zadnego programu.", App.Title); return; }
-                RunWorker(delegate { InstallSelected(selected, verifyHash); }, false);
+                List<string> missing = MissingOfflineFiles(selected, false);
+                if (!ConfirmOfflineFiles(missing)) return;
+                RunWorker(delegate { InstallSelected(selected, verifyHash, skipCurrent); }, false);
             };
+            btnPrepare.Click += delegate { PrepareClicked(); };
             btnJoin.Click += delegate { JoinDomainClicked(); };
             btnRename.Click += delegate { RenameClicked(); };
 
@@ -1085,7 +1190,7 @@ namespace Wdrozyciel
             btnPower100 = new Button { Text = "Procesor: maksimum 100% (AC/DC)", Location = new Point(215, 25), Size = new Size(200, 34) };
             btnFastStartup = new Button { Text = "Wylacz szybkie uruchamianie", Location = new Point(10, 66), Size = new Size(195, 34) };
             btnOfficeScrubber = new Button { Text = "Uruchom OfficeScrubber", Location = new Point(215, 66), Size = new Size(200, 34) };
-            btnMcAfee = new Button { Text = "Pobierz i uruchom McAfee MCPR", Location = new Point(10, 107), Size = new Size(405, 34) };
+            btnMcAfee = new Button { Text = "Uruchom lokalny McAfee MCPR", Location = new Point(10, 107), Size = new Size(405, 34) };
 
             toolsSubTabs = new TabControl { Location = new Point(10, 150), Size = new Size(405, 284) };
             TabPage outputTab = new TabPage("Wynik");
@@ -1121,8 +1226,13 @@ namespace Wdrozyciel
             btnWingetList.Click += delegate { RunAdminWorker(ListInstalledApps); };
             btnPower100.Click += delegate { RunAdminWorker(SetProcessorMaximum); };
             btnFastStartup.Click += delegate { RunAdminWorker(DisableFastStartup); };
-            btnOfficeScrubber.Click += delegate { LaunchOfficeScrubber(); };
-            btnMcAfee.Click += delegate { RunAdminWorker(DownloadAndRunMcAfee); };
+            btnOfficeScrubber.Click += delegate
+            {
+                bool? fullCleanup = ChooseOfficeCleanupMode();
+                if (fullCleanup.HasValue)
+                    RunAdminWorker(delegate { LaunchOfficeScrubber(fullCleanup.Value); });
+            };
+            btnMcAfee.Click += delegate { RunAdminWorker(RunLocalMcAfee); };
             btnWingetLoad.Click += delegate { LoadDefaultWingetIds(); };
             btnWingetRemove.Click += delegate { RemoveWingetApps(); };
             btnAppxLoad.Click += delegate { LoadDefaultAppx(); };
@@ -1162,6 +1272,13 @@ namespace Wdrozyciel
         }
 
         static bool ValidHostname(string name) { return Regex.IsMatch(name, @"^[A-Za-z0-9][A-Za-z0-9-]{0,14}$"); }
+        static bool ExpectedHostname(string name) { return Regex.IsMatch(name, @"^[A-Za-z0-9]+-\d{4}$"); }
+        bool ConfirmHostnameFormat(string name)
+        {
+            return ExpectedHostname(name) || MessageBox.Show(
+                "Nazwa komputera nie pasuje do oczekiwanego formatu SKROT-1234.\n\nKontynuowac z nazwa " + name + "?",
+                App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+        }
         void SetDomainButtons(bool enabled) { btnJoin.Enabled = btnRename.Enabled = enabled; }
 
         void JoinDomainClicked()
@@ -1171,31 +1288,39 @@ namespace Wdrozyciel
             string pass = txtDomPass.Text;
             if (user.Length == 0 || pass.Length == 0) { MessageBox.Show("Podaj login i haslo konta domenowego.", App.Title); return; }
             if (!ValidHostname(host)) { MessageBox.Show("Nieprawidlowa nazwa komputera (1-15 znakow: litery, cyfry, myslnik).", App.Title); return; }
+            if (!ConfirmHostnameFormat(host)) return;
             if (!domainUp && MessageBox.Show("Domena wyglada na niedostepna. Kontynuowac mimo to?", App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
 
             string account = (user.Contains("\\") || user.Contains("@")) ? user : user + "@" + Domain;
+            bool currentlyInDomain;
+            Native.GetJoinInfo(out currentlyInDomain);
             SetDomainButtons(false);
-            Thread t = new Thread(delegate
+            Thread t = new Thread(new ThreadStart(delegate
             {
                 try
                 {
-                    Log("Dolaczanie do domeny " + Domain + " jako " + account + "...");
-                    uint rc = Native.NetJoinDomain(null, Domain, null, account, pass, 0x23);
-                    if (rc != 0) { Log("BLAD dolaczania: " + JoinError(rc)); return; }
-                    Log("Dolaczono do domeny " + Domain + ".");
                     bool renamed = false;
                     if (!host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase))
                     {
-                        Log("Zmiana nazwy komputera na " + host + "...");
-                        int rr = WmiRename(host, account, pass);
-                        if (rr == 0) { Log("Nazwa zmieniona na " + host + "."); renamed = true; }
-                        else Log("BLAD zmiany nazwy (kod " + rr + ") - zmien nazwe recznie po restarcie.");
+                        Log("Zmiana nazwy komputera na " + host + " przed dolaczeniem do domeny...");
+                        int rr = WmiRename(host, currentlyInDomain ? account : null, currentlyInDomain ? pass : null);
+                        if (rr != 0) { Log("BLAD zmiany nazwy (kod " + rr + ") - przerwano dolaczanie do domeny."); return; }
+                        Log("Nazwa zmieniona na " + host + ".");
+                        renamed = true;
+                        restartPending = true;
                     }
+
+                    Log("Dolaczanie do domeny " + Domain + " jako " + account + "...");
+                    uint rc = Native.NetJoinDomain(null, Domain, null, account, pass, 0x23);
+                    if (rc != 0) { Log("BLAD dolaczania: " + JoinError(rc)); return; }
+                    restartPending = true;
+                    Log("Dolaczono do domeny " + Domain + ".");
                     UpdateJoinedLabel();
                     UI(delegate { MessageBox.Show("Dodano do domeny " + Domain + (renamed ? "\nNowa nazwa: " + host : "") + "\n\nUruchom ponownie komputer, aby dokonczyc.", App.Title, MessageBoxButtons.OK, MessageBoxIcon.Information); });
                 }
-                finally { UI(delegate { SetDomainButtons(true); }); }
-            });
+                catch (Exception ex) { Log("BLAD operacji domenowej: " + ex.Message); }
+                finally { UI(delegate { txtDomPass.Clear(); SetDomainButtons(true); }); }
+            }));
             t.IsBackground = true;
             t.Start();
         }
@@ -1204,6 +1329,7 @@ namespace Wdrozyciel
         {
             string host = txtHostname.Text.Trim();
             if (!ValidHostname(host)) { MessageBox.Show("Nieprawidlowa nazwa komputera (1-15 znakow: litery, cyfry, myslnik).", App.Title); return; }
+            if (!ConfirmHostnameFormat(host)) return;
             if (host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase)) { MessageBox.Show("Komputer juz nazywa sie " + host + ".", App.Title); return; }
 
             bool inDom;
@@ -1214,7 +1340,7 @@ namespace Wdrozyciel
             string accPass = account != null ? pass : null;
 
             SetDomainButtons(false);
-            Thread t = new Thread(delegate
+            Thread t = new Thread(new ThreadStart(delegate
             {
                 try
                 {
@@ -1222,13 +1348,15 @@ namespace Wdrozyciel
                     int rr = WmiRename(host, account, accPass);
                     if (rr == 0)
                     {
+                        restartPending = true;
                         Log("Nazwa zmieniona na " + host + ".");
                         UI(delegate { MessageBox.Show("Nazwa zmieniona na " + host + ".\nUruchom ponownie komputer.", App.Title, MessageBoxButtons.OK, MessageBoxIcon.Information); });
                     }
                     else Log("BLAD zmiany nazwy: kod " + rr + (inDom && account == null ? " (komputer w domenie - podaj login i haslo domenowe)" : ""));
                 }
-                finally { UI(delegate { SetDomainButtons(true); }); }
-            });
+                catch (Exception ex) { Log("BLAD zmiany nazwy: " + ex.Message); }
+                finally { UI(delegate { txtDomPass.Clear(); SetDomainButtons(true); }); }
+            }));
             t.IsBackground = true;
             t.Start();
         }
@@ -1340,12 +1468,13 @@ namespace Wdrozyciel
         {
             if (requireSelection && Selected().Count == 0) { MessageBox.Show("Nie zaznaczono zadnego programu.", App.Title); return; }
             SetMainButtons(false);
-            Thread t = new Thread(delegate
+            workerRunning = true;
+            Thread t = new Thread(new ThreadStart(delegate
             {
                 try { work(); }
                 catch (Exception ex) { Log("BLAD KRYTYCZNY: " + ex); }
-                finally { UI(delegate { SetMainButtons(true); }); Status("Gotowy."); }
-            });
+                finally { workerRunning = false; UI(delegate { SetMainButtons(true); }); Status("Gotowy."); }
+            }));
             t.IsBackground = true;
             t.Start();
         }
@@ -1354,10 +1483,127 @@ namespace Wdrozyciel
 
         void SetMainButtons(bool enabled)
         {
-            btnDownload.Enabled = btnInstall.Enabled = btnAll.Enabled = btnNone.Enabled = enabled;
+            btnDownload.Enabled = btnInstall.Enabled = btnPrepare.Enabled = btnAll.Enabled = btnNone.Enabled = enabled;
             btnScriptsRefresh.Enabled = btnScriptsOpen.Enabled = btnScriptsRun.Enabled = enabled;
             btnWingetList.Enabled = btnPower100.Enabled = btnFastStartup.Enabled = btnOfficeScrubber.Enabled = btnMcAfee.Enabled = enabled;
             btnWingetLoad.Enabled = btnWingetRemove.Enabled = btnAppxLoad.Enabled = btnAppxRemove.Enabled = enabled;
+        }
+
+        List<string> MissingOfflineFiles(List<AppEntry> apps, bool includeOfficeScrubber)
+        {
+            List<string> missing = new List<string>();
+            foreach (AppEntry app in apps)
+            {
+                string installer = app.InstallerPath(eng.RepoDir);
+                if (installer == null || !File.Exists(installer)) missing.Add(app.Name + " - instalator");
+                foreach (string dep in app.Deps)
+                {
+                    string dependency = Path.Combine(eng.RepoDir, dep.Replace('/', '\\'));
+                    if (!File.Exists(dependency)) missing.Add(app.Name + " - " + Path.GetFileName(dependency));
+                }
+            }
+            if (includeOfficeScrubber)
+            {
+                string office = Path.Combine(eng.ToolsDir, "OfficeScrubber", "OfficeScrubberAIO.cmd");
+                if (!File.Exists(office)) missing.Add("OfficeScrubberAIO.cmd");
+            }
+            return missing;
+        }
+
+        bool ConfirmOfflineFiles(List<string> missing)
+        {
+            if (missing.Count == 0) return true;
+            MessageBox.Show(
+                "Nie mozna rozpoczac pracy offline. Brakuje plikow:\n\n" + string.Join("\n", missing.ToArray()) +
+                "\n\nUzupelnij ukryty folder .wdrozyciel i sprobuj ponownie.",
+                App.Title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return false;
+        }
+
+        void PrepareClicked()
+        {
+            List<AppEntry> selected = Selected();
+            bool verifyHash = chkHash.Checked;
+            bool disableFast = chkPrepareFast.Checked;
+            bool cleanOffice = chkPrepareOffice.Checked;
+            bool openUpdate = chkPrepareUpdate.Checked;
+            bool skipCurrent = chkSkipInstalled.Checked;
+
+            if (selected.Count == 0 && !disableFast && !cleanOffice && !openUpdate)
+            {
+                MessageBox.Show("Nie wybrano zadnego zadania.", App.Title);
+                return;
+            }
+            if (!ConfirmOfflineFiles(MissingOfflineFiles(selected, cleanOffice))) return;
+
+            string summary = "Uruchomic przygotowanie komputera?\n\n" +
+                "Programy z lokalnego repo: " + selected.Count + "\n" +
+                "Weryfikacja SHA256: " + (verifyHash ? "tak" : "nie") + "\n" +
+                "Pomijanie aktualnych wersji: " + (skipCurrent ? "tak" : "nie") + "\n" +
+                "Szybkie uruchamianie: " + (disableFast ? "wylacz" : "bez zmian") + "\n" +
+                "Fabryczny Office: " + (cleanOffice ? "usun" : "bez zmian") + "\n" +
+                "Windows Update: " + (openUpdate ? "otworz po instalacji" : "nie otwieraj");
+            if (cleanOffice)
+                summary += "\n\nUWAGA: czyszczenie Office usuwa preinstalowany Microsoft 365/Click-to-Run, aplikacje UWP, ich licencje i ustawienia.";
+
+            if (MessageBox.Show(summary, App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+            RunWorker(delegate { PrepareComputer(selected, verifyHash, skipCurrent, disableFast, cleanOffice, openUpdate); }, false);
+        }
+
+        void PrepareComputer(List<AppEntry> selected, bool verifyHash, bool skipCurrent, bool disableFast, bool cleanOffice, bool openUpdate)
+        {
+            int total = selected.Count + (disableFast ? 1 : 0) + (cleanOffice ? 1 : 0) + (openUpdate ? 1 : 0);
+            int done = 0;
+            int okCount;
+            List<string> failed;
+            bool officeOk = true;
+            Progress(0, Math.Max(1, total));
+            Log("=== START SZYBKIEGO PRZYGOTOWANIA OFFLINE na " + Environment.MachineName + " ===");
+
+            if (disableFast)
+            {
+                DisableFastStartup();
+                Progress(++done, total);
+            }
+
+            InstallApplicationsCore(selected, verifyHash, skipCurrent, ref done, total, out okCount, out failed);
+
+            if (cleanOffice)
+            {
+                officeOk = LaunchOfficeScrubber(false, false);
+                Progress(++done, total);
+            }
+
+            if (openUpdate)
+            {
+                OpenWindowsUpdate();
+                Progress(++done, total);
+            }
+
+            Log(string.Format("=== KONIEC PRZYGOTOWANIA: programy {0}/{1} OK{2}{3} ===", okCount, selected.Count,
+                failed.Count > 0 ? " | niepowodzenia: " + string.Join(", ", failed.ToArray()) : "",
+                cleanOffice && !officeOk ? " | OfficeScrubber: blad" : ""));
+            UI(delegate
+            {
+                string message = string.Format("Przygotowanie zakonczone.\nProgramy: {0} z {1} OK.", okCount, selected.Count);
+                if (failed.Count > 0) message += "\nNiepowodzenia: " + string.Join(", ", failed.ToArray());
+                if (cleanOffice && !officeOk) message += "\nCzyszczenie Office nie powiodlo sie - sprawdz log.";
+                MessageBox.Show(message, App.Title, MessageBoxButtons.OK,
+                    failed.Count > 0 || (cleanOffice && !officeOk) ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            });
+        }
+
+        void OpenWindowsUpdate()
+        {
+            Status("Otwieram Windows Update...");
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo("ms-settings:windowsupdate");
+                psi.UseShellExecute = true;
+                Process.Start(psi);
+                Log("Otwarto Windows Update.");
+            }
+            catch (Exception ex) { Log("UWAGA: nie udalo sie otworzyc Windows Update: " + ex.Message); }
         }
 
         void DownloadSelected(List<AppEntry> sel)
@@ -1377,29 +1623,36 @@ namespace Wdrozyciel
             Log("Pobieranie zakonczone. Manifest zapisany.");
         }
 
-        void InstallSelected(List<AppEntry> sel, bool verifyHash)
+        void InstallSelected(List<AppEntry> sel, bool verifyHash, bool skipCurrent)
         {
-            int done = 0, okCount = 0;
-            List<string> failed = new List<string>();
+            int done = 0, okCount;
+            List<string> failed;
             Progress(0, sel.Count);
             Log("=== START WDROZENIA na " + Environment.MachineName + " ===");
-            foreach (AppEntry app in sel)
-            {
-                Log("--- " + app.Name + " " + app.Version + " ---");
-                bool ok = false;
-                try { ok = eng.InstallOne(app, verifyHash); }
-                catch (Exception ex) { Log("BLAD: " + ex.Message); }
-                if (ok) okCount++; else failed.Add(app.Name);
-                Progress(++done, sel.Count);
-            }
+            InstallApplicationsCore(sel, verifyHash, skipCurrent, ref done, sel.Count, out okCount, out failed);
             Log(string.Format("=== KONIEC: {0}/{1} OK{2} ===", okCount, sel.Count,
                 failed.Count > 0 ? " | niepowodzenia: " + string.Join(", ", failed.ToArray()) : ""));
             UI(delegate
             {
-                MessageBox.Show(string.Format("Zainstalowano {0} z {1}.{2}", okCount, sel.Count,
+                MessageBox.Show(string.Format("Zainstalowano lub pominieto jako aktualne: {0} z {1}.{2}", okCount, sel.Count,
                     failed.Count > 0 ? "\nNiepowodzenia: " + string.Join(", ", failed.ToArray()) : ""),
                     App.Title, MessageBoxButtons.OK, failed.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
             });
+        }
+
+        void InstallApplicationsCore(List<AppEntry> sel, bool verifyHash, bool skipCurrent, ref int done, int total, out int okCount, out List<string> failed)
+        {
+            okCount = 0;
+            failed = new List<string>();
+            foreach (AppEntry app in sel)
+            {
+                Log("--- " + app.Name + " " + app.Version + " ---");
+                bool ok = false;
+                try { ok = eng.InstallOne(app, verifyHash, skipCurrent); }
+                catch (Exception ex) { Log("BLAD: " + ex.Message); }
+                if (ok) okCount++; else failed.Add(app.Name);
+                Progress(++done, Math.Max(1, total));
+            }
         }
 
         void RefreshScripts()
@@ -1479,44 +1732,101 @@ namespace Wdrozyciel
             catch (Exception ex) { Log("BLAD szybkiego uruchamiania: " + ex.Message); }
         }
 
-        void LaunchOfficeScrubber()
+        bool? ChooseOfficeCleanupMode()
+        {
+            DialogResult mode = MessageBox.Show(
+                "Wybierz zakres czyszczenia Office:\n\n" +
+                "TAK - fabryczny/preinstalowany Office: Microsoft 365 Click-to-Run i UWP (zalecane)\n" +
+                "NIE - wszystkie wykryte wersje Office, takze MSI i UWP\n" +
+                "ANULUJ - bez zmian\n\n" +
+                "Oba tryby usuwaja ustawienia i licencje wybranego pakietu. Zamknij wszystkie aplikacje Office.",
+                App.Title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+            if (mode == DialogResult.Cancel) return null;
+            if (mode == DialogResult.Yes) return false;
+
+            return MessageBox.Show(
+                "Pelne czyszczenie usunie WSZYSTKIE wykryte wersje Office (Click-to-Run, MSI 2003-2016 i UWP), " +
+                "ich licencje, klucze produktu i ustawienia uzytkownika.\n\nKontynuowac?",
+                App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes
+                ? (bool?)true : null;
+        }
+
+        bool LaunchOfficeScrubber(bool fullCleanup)
+        {
+            return LaunchOfficeScrubber(fullCleanup, true);
+        }
+
+        bool LaunchOfficeScrubber(bool fullCleanup, bool allowDownload)
         {
             const string url = "https://raw.githubusercontent.com/abbodi1406/BatUtil/master/OfficeScrubber/OfficeScrubberAIO.cmd";
+            const string expectedSha256 = "E418F8A6B36D9C55D6EFDB4B5AD378EBBB848A6A5E38C44EB94690EAE35FFF44";
             string dir = Path.Combine(eng.ToolsDir, "OfficeScrubber");
             string path = Path.Combine(dir, "OfficeScrubberAIO.cmd");
-            if (MessageBox.Show("OfficeScrubber moze calkowicie usunac pakiety Microsoft Office. Pobrac w razie potrzeby i uruchomic narzedzie w trybie interaktywnym?", App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
             try
             {
                 Directory.CreateDirectory(dir);
                 if (!File.Exists(path))
                 {
+                    if (!allowDownload)
+                        throw new FileNotFoundException("brak lokalnego OfficeScrubberAIO.cmd; tryb przygotowania nie korzysta z internetu.", path);
+                    string downloadPath = path + ".download";
+                    try { if (File.Exists(downloadPath)) File.Delete(downloadPath); } catch { }
                     using (WebClient wc = new WebClient())
                     {
                         wc.Headers[HttpRequestHeader.UserAgent] = "Wdrozyciel/" + App.Version;
-                        wc.DownloadFile(url, path);
+                        wc.DownloadFile(url, downloadPath);
                     }
-                    Log("Pobrano OfficeScrubberAIO.cmd (SHA256: " + Engine.Sha256Of(path) + ").");
+                    string downloadedHash = Engine.Sha256Of(downloadPath);
+                    if (!string.Equals(downloadedHash, expectedSha256, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { File.Delete(downloadPath); } catch { }
+                        throw new InvalidDataException("pobrany OfficeScrubber ma nieoczekiwana sume SHA256; plik nie zostal uruchomiony.");
+                    }
+                    File.Move(downloadPath, path);
+                    Log("Pobrano i zweryfikowano OfficeScrubberAIO.cmd.");
                 }
-                else Log("Uzywam dolaczonego OfficeScrubberAIO.cmd (SHA256: " + Engine.Sha256Of(path) + ").");
-                Engine.RunVisible("cmd.exe", "/d /c " + Engine.QuoteArg(path), false);
-                Log("Uruchomiono OfficeScrubber w trybie interaktywnym.");
+                string actualHash = Engine.Sha256Of(path);
+                if (!string.Equals(actualHash, expectedSha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("lokalny OfficeScrubber ma niezgodna sume SHA256; plik nie zostal uruchomiony.");
+
+                string modeArg = fullCleanup ? "/A" : "/C /P";
+                string modeName = fullCleanup
+                    ? "pelne czyszczenie wszystkich wersji"
+                    : "fabryczny Office (Microsoft 365 Click-to-Run i UWP)";
+                Log("OfficeScrubber: zweryfikowano SHA256; tryb: " + modeName + ".");
+                Status("OfficeScrubber: " + modeName + "...");
+                int code = Engine.RunVisible("cmd.exe", "/d /c call " + Engine.QuoteArg(path) + " " + modeArg + " -qedit", true);
+                if (code == 0)
+                {
+                    Log("OfficeScrubber zakonczyl czyszczenie. Zalecany jest restart komputera.");
+                    return true;
+                }
+                else
+                    Log("BLAD: OfficeScrubber zakonczyl dzialanie kodem " + code + ".");
+                return false;
             }
-            catch (Exception ex) { Log("BLAD OfficeScrubber: " + ex.Message); }
+            catch (Exception ex) { Log("BLAD OfficeScrubber: " + ex.Message); return false; }
         }
 
-        void DownloadAndRunMcAfee()
+        void RunLocalMcAfee()
         {
-            const string url = "https://download.mcafee.com/molbin/iss-loc/SupportTools/MCPR/MCPR.exe";
+            const string expectedSha256 = "D4D2266A19876BECCC95A97E1E5821EF42D98D503818C1E3F19BE75E9358B100";
             string path = Path.Combine(eng.ToolsDir, "MCPR.exe");
-            Status("Pobieram McAfee MCPR...");
+            Status("Sprawdzam lokalny McAfee MCPR...");
             try
             {
-                using (WebClient wc = new WebClient())
+                if (!File.Exists(path))
                 {
-                    wc.Headers[HttpRequestHeader.UserAgent] = "Wdrozyciel/" + App.Version;
-                    wc.DownloadFile(url, path);
+                    Log("BLAD: brak lokalnego MCPR.exe w " + eng.ToolsDir + ".");
+                    return;
                 }
-                Log("Pobrano MCPR.exe (SHA256: " + Engine.Sha256Of(path) + ").");
+                string hash = Engine.Sha256Of(path);
+                if (!string.Equals(hash, expectedSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log("BLAD: lokalny MCPR.exe ma niezgodna sume SHA256 i nie zostanie uruchomiony. Odczytano: " + hash + ".");
+                    return;
+                }
+                Log("Zweryfikowano lokalny MCPR.exe (SHA256 OK).");
                 UI(delegate
                 {
                     if (MessageBox.Show("MCPR wymaga obslugi interaktywnej i moze wymagac restartu. Uruchomic teraz?", App.Title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
@@ -1526,7 +1836,7 @@ namespace Wdrozyciel
                     }
                 });
             }
-            catch (Exception ex) { Log("BLAD pobierania MCPR: " + ex.Message); }
+            catch (Exception ex) { Log("BLAD MCPR: " + ex.Message); }
         }
 
         static List<string> ParseNames(string raw)
