@@ -190,12 +190,4 @@ Pull requesty mile widziane — zasady w [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Kod tego projektu jest udostępniony na licencji [**MIT**](LICENSE) © Kacper Rusin.
 Narzędzia zewnętrzne w `tools/` mają własne licencje — patrz [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES.md).
 
----
 
-### Dlaczego „II Wielki”?
-
-Bo `21.37` to nie jest zwykły numer wersji. 🕘🍰 Nazwa to ukłon w stronę klasyki polskiego
-internetu — a napakowany patron z kremówką pilnuje, żeby każde wdrożenie skończyło się
-kodem `0` (albo chociaż `3010 – wymagany restart`).
-
-<div align="center"><sub>Gliwice Cloud • <code>ad.gliwice.cloud</code></sub></div>
