@@ -69,6 +69,9 @@ namespace Wdrozyciel
         public string ShortcutName = "";
         public string ShortcutTarget = "";
         public string PostInstall = "";
+        // Opcjonalna tresc pliku konfiguracyjnego INI dla instalatora EXE (linie oddzielone \n).
+        // Uzywane m.in. przez Firefox: wymusza katalog Program Files i wylacza wlasny skrot na pulpicie.
+        public string IniConfig = "";
         public bool PublicDesktop = true;
         public double SizeMB;
         public List<string> Deps = new List<string>();
@@ -155,6 +158,7 @@ namespace Wdrozyciel
                     WingetId="Mozilla.Firefox", Locale="pl-PL", Scope="machine",
                     ExeArgs="/S", MsiArgs="/qn ALLUSERS=1 INSTALL_MAINTENANCE_SERVICE=true",
                     DirectUrl="https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=pl",
+                    IniConfig="[Install]\nInstallDirectoryPath=%ProgramFiles%\\Mozilla Firefox\nDesktopShortcut=false\nQuickLaunchShortcut=false\nTaskbarShortcut=false\nStartMenuShortcuts=true\nMaintenanceService=true\nRemoveDistributionDir=true",
                     ShortcutName="Mozilla Firefox", ShortcutTarget="%ProgramFiles%\\Mozilla Firefox\\firefox.exe|%ProgramFiles(x86)%\\Mozilla Firefox\\firefox.exe",
                     PostInstall="firefox-auto-update" },
                 new AppEntry { Id="chrome", Name="Google Chrome", Category="Przegladarki",
@@ -231,6 +235,7 @@ namespace Wdrozyciel
                         AssignIfNotEmpty(d, "shortcutName", delegate(string v) { e.ShortcutName = v; });
                         AssignIfNotEmpty(d, "shortcutTarget", delegate(string v) { e.ShortcutTarget = v; });
                         AssignIfNotEmpty(d, "postInstall", delegate(string v) { e.PostInstall = v; });
+                        AssignIfNotEmpty(d, "iniConfig", delegate(string v) { e.IniConfig = v; });
                         object publicDesktop;
                         if (d.TryGetValue("publicDesktop", out publicDesktop))
                         {
@@ -266,7 +271,8 @@ namespace Wdrozyciel
                     { "exeArgs", a.ExeArgs }, { "msiArgs", a.MsiArgs }, { "directUrl", a.DirectUrl },
                     { "directVersion", a.DirectVersion },
                     { "publicDesktop", a.PublicDesktop }, { "shortcutName", a.ShortcutName },
-                    { "shortcutTarget", a.ShortcutTarget }, { "postInstall", a.PostInstall }
+                    { "shortcutTarget", a.ShortcutTarget }, { "postInstall", a.PostInstall },
+                    { "iniConfig", a.IniConfig }
                 });
             }
             Dictionary<string, object> root = new Dictionary<string, object> { { "apps", list } };
@@ -558,7 +564,20 @@ namespace Wdrozyciel
             int code = RunCapture(wingetPath,
                 "source update --name winget --accept-source-agreements --disable-interactivity",
                 out output, 120000);
-            if (code != 0) Log("UWAGA: winget source update nie powiodl sie; kontynuuje z obecnym cache.");
+            if (code == 0) return;
+
+            // 0x8a15000f "Data required by the source is missing" - indeks zrodla winget jest uszkodzony
+            // lub nieobecny (czeste przy uruchomieniu z podniesionymi uprawnieniami). Reset przywraca
+            // domyslne zrodlo i pobiera indeks od nowa, dzieki czemu "winget download" znowu dziala.
+            Log("UWAGA: winget source update nie powiodl sie (kod " + code + "); resetuje zrodlo winget...");
+            RunCapture(wingetPath, "source reset --name winget --force --disable-interactivity", out output, 120000);
+            code = RunCapture(wingetPath,
+                "source update --name winget --accept-source-agreements --disable-interactivity",
+                out output, 120000);
+            if (code == 0)
+                Log("Zrodlo winget naprawione (reset + update).");
+            else
+                Log("UWAGA: nadal nie udalo sie zaktualizowac zrodla winget; uzyje adresow bezposrednich tam, gdzie skonfigurowano.");
         }
 
         string WingetLatestVersion(string wingetId)
@@ -729,14 +748,29 @@ namespace Wdrozyciel
             Status("Instaluje: " + app.Name + "...");
             Stopwatch sw = Stopwatch.StartNew();
             int code;
+            string iniFile = null;
             try
             {
                 bool isMsi = path.EndsWith(".msi", StringComparison.OrdinalIgnoreCase);
                 string silent = isMsi ? app.MsiArgs : app.ExeArgs;
                 if (string.IsNullOrEmpty(silent)) silent = app.ManifestArgs;
+
+                // Plik INI dla instalatorow EXE (np. Firefox): wymusza katalog docelowy
+                // (Program Files) i wylacza wlasny skrot na pulpicie, aby nie dublowal
+                // publicznego skrotu tworzonego przez Wdrozyciela.
+                if (!isMsi && !string.IsNullOrEmpty(app.IniConfig))
+                {
+                    iniFile = Path.Combine(Path.GetTempPath(), "wdrozyciel-" + app.Id + "-" + Guid.NewGuid().ToString("N") + ".ini");
+                    string ini = Environment.ExpandEnvironmentVariables(app.IniConfig.Replace("\\n", "\n")).Replace("\n", "\r\n");
+                    File.WriteAllText(iniFile, ini, new UTF8Encoding(false));
+                    silent = (silent + " /INI=" + QuoteArg(iniFile)).Trim();
+                    Log("Uzywam pliku konfiguracyjnego INI dla instalatora " + app.Name + ".");
+                }
+
                 code = RunInstaller(path, silent, app.Scope);
             }
             catch (Exception ex) { Log("BLAD uruchomienia: " + ex.Message); return false; }
+            finally { if (iniFile != null) { try { File.Delete(iniFile); } catch { } } }
             sw.Stop();
 
             if (!SuccessCode(code))
@@ -1025,7 +1059,7 @@ namespace Wdrozyciel
         Label lblStatus, lblDomStatus, lblJoined, lblScriptFolder;
         Button btnAll, btnNone, btnDownload, btnInstall, btnPrepare, btnJoin, btnRename;
         Button btnScriptsRefresh, btnScriptsOpen, btnScriptsRun, btnWingetList, btnPower100, btnFastStartup;
-        Button btnOfficeScrubber, btnMcAfee, btnAppxLoad, btnAppxRemove, btnWingetLoad, btnWingetRemove;
+        Button btnOfficeScrubber, btnMcAfee, btnAppxLoad, btnAppxRemove, btnWingetLoad, btnWingetRemove, btnVerifyDeploy;
         TabControl toolsSubTabs;
         CheckBox chkHash, chkPrepareFast, chkPrepareOffice, chkPrepareUpdate, chkSkipInstalled;
         string logFilePath;
@@ -1190,7 +1224,8 @@ namespace Wdrozyciel
             btnPower100 = new Button { Text = "Procesor: maksimum 100% (AC/DC)", Location = new Point(215, 25), Size = new Size(200, 34) };
             btnFastStartup = new Button { Text = "Wylacz szybkie uruchamianie", Location = new Point(10, 66), Size = new Size(195, 34) };
             btnOfficeScrubber = new Button { Text = "Uruchom OfficeScrubber", Location = new Point(215, 66), Size = new Size(200, 34) };
-            btnMcAfee = new Button { Text = "Uruchom lokalny McAfee MCPR", Location = new Point(10, 107), Size = new Size(405, 34) };
+            btnMcAfee = new Button { Text = "Uruchom lokalny McAfee MCPR", Location = new Point(10, 107), Size = new Size(195, 34) };
+            btnVerifyDeploy = new Button { Text = "Weryfikuj domene / GPO / ESET", Location = new Point(215, 107), Size = new Size(200, 34) };
 
             toolsSubTabs = new TabControl { Location = new Point(10, 150), Size = new Size(405, 284) };
             TabPage outputTab = new TabPage("Wynik");
@@ -1217,7 +1252,7 @@ namespace Wdrozyciel
             Label appxInfo = new Label { Text = "Usuwa tez pakiet provisioned dla nowych uzytkownikow.", Location = new Point(8, 226), Size = new Size(373, 22) };
             appxTab.Controls.AddRange(new Control[] { appxLabel, txtAppxNames, btnAppxLoad, btnAppxRemove, appxInfo });
 
-            system.Controls.AddRange(new Control[] { btnWingetList, btnPower100, btnFastStartup, btnOfficeScrubber, btnMcAfee, toolsSubTabs });
+            system.Controls.AddRange(new Control[] { btnWingetList, btnPower100, btnFastStartup, btnOfficeScrubber, btnMcAfee, btnVerifyDeploy, toolsSubTabs });
             tab.Controls.AddRange(new Control[] { scripts, system });
 
             btnScriptsRefresh.Click += delegate { RefreshScripts(); };
@@ -1233,6 +1268,7 @@ namespace Wdrozyciel
                     RunAdminWorker(delegate { LaunchOfficeScrubber(fullCleanup.Value); });
             };
             btnMcAfee.Click += delegate { RunAdminWorker(RunLocalMcAfee); };
+            btnVerifyDeploy.Click += delegate { RunAdminWorker(VerifyDeployment); };
             btnWingetLoad.Click += delegate { LoadDefaultWingetIds(); };
             btnWingetRemove.Click += delegate { RemoveWingetApps(); };
             btnAppxLoad.Click += delegate { LoadDefaultAppx(); };
@@ -1311,7 +1347,7 @@ namespace Wdrozyciel
                     }
 
                     Log("Dolaczanie do domeny " + Domain + " jako " + account + "...");
-                    uint rc = Native.NetJoinDomain(null, Domain, null, account, pass, 0x23);
+                    uint rc = JoinDomain(account, pass);
                     if (rc != 0) { Log("BLAD dolaczania: " + JoinError(rc)); return; }
                     restartPending = true;
                     Log("Dolaczono do domeny " + Domain + ".");
@@ -1323,6 +1359,35 @@ namespace Wdrozyciel
             }));
             t.IsBackground = true;
             t.Start();
+        }
+
+        // Flagi NetJoinDomain (lmjoin.h)
+        const uint NETSETUP_JOIN_DOMAIN = 0x00000001;
+        const uint NETSETUP_ACCT_CREATE = 0x00000002;
+        const uint NETSETUP_DOMAIN_JOIN_IF_JOINED = 0x00000020;
+
+        // Najpierw probujemy dolaczyc do ISTNIEJACEGO konta komputera (jak kreator Ustawien Windows) -
+        // to nie zuzywa limitu ms-DS-MachineAccountQuota i dziala, gdy konto zostalo wstepnie utworzone
+        // lub pozostalo po poprzednim dolaczeniu. Dopiero gdy konto nie istnieje, tworzymy nowe.
+        uint JoinDomain(string account, string pass)
+        {
+            uint joinExisting = NETSETUP_JOIN_DOMAIN | NETSETUP_DOMAIN_JOIN_IF_JOINED;            // 0x21
+            uint joinCreate = joinExisting | NETSETUP_ACCT_CREATE;                                // 0x23
+
+            uint rc = Native.NetJoinDomain(null, Domain, null, account, pass, joinExisting);
+            if (rc == 0) { Log("Dolaczono do istniejacego konta komputera w domenie."); return 0; }
+
+            // Bledy terminalne (zle haslo, brak domeny, konflikt polaczen) - tworzenie konta nic nie da.
+            if (rc == 1326 || rc == 1355 || rc == 1219 || rc == 5)
+                return rc;
+
+            Log("Nie znaleziono konta komputera w domenie (kod " + rc + "); probuje utworzyc nowe konto...");
+            uint rc2 = Native.NetJoinDomain(null, Domain, null, account, pass, joinCreate);
+            if (rc2 == 0) { Log("Utworzono konto komputera i dolaczono do domeny."); return 0; }
+
+            // Zwroc blad z proby tworzenia, chyba ze to typowy "konto juz istnieje" -
+            // wtedy bardziej pomocny jest blad z pierwszej proby (dolaczenia do istniejacego).
+            return (rc2 == 2224) ? rc : rc2;
         }
 
         void RenameClicked()
@@ -1382,6 +1447,7 @@ namespace Wdrozyciel
                 case 1326: return "zly login lub haslo (kod 1326)";
                 case 1355: return "nie znaleziono domeny (kod 1355)";
                 case 2224: return "konto komputera juz istnieje (kod 2224)";
+                case 8557: return "przekroczono limit kont komputerow tego uzytkownika (kod 8557) - popros administratora o wstepne utworzenie konta komputera w AD lub zwiekszenie ms-DS-MachineAccountQuota";
                 case 1219: return "konflikt polaczen - wyloguj sie i sprobuj ponownie (kod 1219)";
                 default: return new System.ComponentModel.Win32Exception((int)rc).Message + " (kod " + rc + ")";
             }
@@ -1485,7 +1551,7 @@ namespace Wdrozyciel
         {
             btnDownload.Enabled = btnInstall.Enabled = btnPrepare.Enabled = btnAll.Enabled = btnNone.Enabled = enabled;
             btnScriptsRefresh.Enabled = btnScriptsOpen.Enabled = btnScriptsRun.Enabled = enabled;
-            btnWingetList.Enabled = btnPower100.Enabled = btnFastStartup.Enabled = btnOfficeScrubber.Enabled = btnMcAfee.Enabled = enabled;
+            btnWingetList.Enabled = btnPower100.Enabled = btnFastStartup.Enabled = btnOfficeScrubber.Enabled = btnMcAfee.Enabled = btnVerifyDeploy.Enabled = enabled;
             btnWingetLoad.Enabled = btnWingetRemove.Enabled = btnAppxLoad.Enabled = btnAppxRemove.Enabled = enabled;
         }
 
@@ -1693,6 +1759,61 @@ namespace Wdrozyciel
             }, false);
         }
 
+        void VerifyDeployment()
+        {
+            Status("Weryfikacja domeny, polityk GPO i ESET (gpupdate moze potrwac)...");
+            Log("Weryfikacja wdrozenia: odswiezam polityki komputera (gpupdate /force)...");
+            string gpuOut;
+            int gpuCode = Engine.RunCapture("gpupdate.exe", "/target:computer /force /wait:180", out gpuOut, 240000);
+            Log(gpuCode == 0 ? "gpupdate zakonczony (kod 0)." : "gpupdate zwrocil kod " + gpuCode + " (polityki moga wymagac restartu).");
+
+            // Raport zbierany w PowerShell - jezykowo-neutralny (rejestr History) + gpresult jako uzupelnienie.
+            string script =
+                "$o=New-Object System.Collections.Generic.List[string];" +
+                "$cs=Get-CimInstance Win32_ComputerSystem;" +
+                "$o.Add('=== Domena ===');" +
+                "$o.Add('Komputer: '+$env:COMPUTERNAME);" +
+                "$o.Add('W domenie: '+$cs.PartOfDomain);" +
+                "$o.Add('Domena/grupa robocza: '+$cs.Domain);" +
+                "$o.Add('');" +
+                "$o.Add('=== Zastosowane polityki komputera (GPO) ===');" +
+                "$gpos=@();" +
+                "try{$gpos=Get-ChildItem 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Group Policy\\History' -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.GetValue('DisplayName') } | Where-Object { $_ } | Sort-Object -Unique}catch{};" +
+                "if($gpos.Count -gt 0){foreach($g in $gpos){$o.Add(' - '+$g)}}else{$o.Add('(brak zarejestrowanych obiektow GPO - komputer moze nie odczytal jeszcze polityk AD)')};" +
+                "$o.Add('');" +
+                "$applied=($gpos | Where-Object { $_ -notmatch 'Local Group Policy|Lokalne zasady' }).Count;" +
+                "$o.Add('Liczba polityk domenowych (poza lokalna): '+$applied);" +
+                "$o.Add('');" +
+                "$o.Add('=== ESET (wdrazany przez GPO) ===');" +
+                "$svc=Get-Service -Name 'ekrn' -ErrorAction SilentlyContinue;" +
+                "if($svc){$o.Add('Usluga ekrn: '+$svc.Status+' (StartType '+$svc.StartType+')')}else{$o.Add('Usluga ekrn: NIE ZNALEZIONO')};" +
+                "$esetDir=Join-Path $env:ProgramFiles 'ESET';" +
+                "$o.Add('Katalog '+$esetDir+': '+ (Test-Path $esetDir));" +
+                "$reg=@('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*');" +
+                "$prod=Get-ItemProperty $reg -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like '*ESET*' } | Select-Object -ExpandProperty DisplayName -ErrorAction SilentlyContinue;" +
+                "if($prod){foreach($p in $prod){$o.Add('Zainstalowano: '+$p)}}else{$o.Add('Wpis odinstalowania ESET: brak')};" +
+                "$esetOk=($svc -ne $null) -or (Test-Path $esetDir) -or ($prod.Count -gt 0);" +
+                "$o.Add('');" +
+                "$o.Add('=== PODSUMOWANIE ===');" +
+                "$o.Add('Polityki AD czytane poprawnie: '+ ($(if($cs.PartOfDomain -and $applied -gt 0){'TAK'}elseif($cs.PartOfDomain){'CZASCIOWO - w domenie, ale brak zastosowanych GPO domenowych (zrob restart i powtorz)'}else{'NIE - komputer nie jest w domenie'})));" +
+                "$o.Add('ESET obecny: '+ ($(if($esetOk){'TAK'}else{'NIE - GPO moze wymagac restartu/logowania lub jeszcze nie dotarl'})));" +
+                "$o -join [Environment]::NewLine";
+            string report;
+            Engine.RunPowerShellCapture(script, out report, 120000);
+
+            string full = "Weryfikacja wdrozenia - " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + Environment.NewLine +
+                          new string('-', 60) + Environment.NewLine + report.Trim() + Environment.NewLine +
+                          Environment.NewLine + "=== gpresult /r /scope:computer ===" + Environment.NewLine;
+            string gpr;
+            Engine.RunCapture("gpresult.exe", "/r /scope:computer", out gpr, 120000);
+            full += gpr.Trim();
+
+            string logPath = Path.Combine(eng.LogDir, string.Format("weryfikacja-wdrozenia-{0:yyyyMMdd-HHmmss}.txt", DateTime.Now));
+            try { File.WriteAllText(logPath, full, new UTF8Encoding(false)); } catch { }
+            UI(delegate { txtToolsOutput.Text = full; toolsSubTabs.SelectedIndex = 0; });
+            Log("Weryfikacja wdrozenia zakonczona. Raport zapisano: " + logPath);
+        }
+
         void ListInstalledApps()
         {
             Status("Odczytuje winget list...");
@@ -1876,6 +1997,8 @@ namespace Wdrozyciel
                     Status("Odinstalowuje winget: " + id + "...");
                     string output;
                     string common = "uninstall --id " + Engine.QuoteArg(id) + " --exact --accept-source-agreements --disable-interactivity";
+                    // Najpierw zakres maszynowy (programy zainstalowane dla wszystkich uzytkownikow),
+                    // potem zakres uzytkownika - inaczej winget nie znajdzie pakietow per-user.
                     int code = Engine.RunCapture(winget, common + " --silent --scope machine", out output, 15 * 60 * 1000);
                     if (code != 0)
                     {
@@ -1884,10 +2007,26 @@ namespace Wdrozyciel
                         output += Environment.NewLine + retryOutput;
                         code = retry;
                     }
-                    Log("winget uninstall " + id + ": kod " + code + (output.Trim().Length > 0 ? " | " + output.Trim() : ""));
+                    Log("winget uninstall " + id + ": " + WingetUninstallResult(code) + (output.Trim().Length > 0 ? " | " + output.Trim() : ""));
                     Progress(++done, ids.Count);
                 }
             }, false);
+        }
+
+        // Czytelny opis najczestszych kodow wyjscia "winget uninstall".
+        static string WingetUninstallResult(int code)
+        {
+            switch (code)
+            {
+                case 0: return "OK - odinstalowano (kod 0)";
+                case 1638: return "OK - pakiet nie byl zainstalowany (kod 1638)";
+                case 3010: return "OK - wymagany restart (kod 3010)";
+                case unchecked((int)0x8A15002B): return "pominieto - brak zainstalowanego pakietu o tym ID (0x8A15002B)";
+                case unchecked((int)0x8A150014): return "BLAD - nie znaleziono zrodla pakietu (0x8A150014)";
+                case unchecked((int)0x8A150011): return "BLAD - odinstalowanie nie powiodlo sie (0x8A150011)";
+                default:
+                    return "kod " + code + (code < 0 ? " (0x" + code.ToString("X8") + ")" : "");
+            }
         }
 
         void LoadDefaultAppx()

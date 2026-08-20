@@ -10,6 +10,7 @@
       "exeArgs": "/S",
       "msiArgs": "/qn ALLUSERS=1 INSTALL_MAINTENANCE_SERVICE=true",
       "directUrl": "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=pl",
+      "iniConfig": "[Install]\nInstallDirectoryPath=%ProgramFiles%\\Mozilla Firefox\nDesktopShortcut=false\nQuickLaunchShortcut=false\nTaskbarShortcut=false\nStartMenuShortcuts=true\nMaintenanceService=true\nRemoveDistributionDir=true",
       "publicDesktop": true,
       "shortcutName": "Mozilla Firefox",
       "shortcutTarget": "%ProgramFiles%\\Mozilla Firefox\\firefox.exe|%ProgramFiles(x86)%\\Mozilla Firefox\\firefox.exe",
