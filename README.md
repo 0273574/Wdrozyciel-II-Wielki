@@ -48,6 +48,8 @@ przycisk i idziesz po kawę. Cała logika mieści się w jednym `Program.cs` i j
   architektury) oraz opcjonalnym **bezpośrednim adresem producenta**.
 - Weryfikacja **sum SHA-256**, dopisywanie `ALLUSERS=1` dla MSI, skróty na
   **publicznym pulpicie**, polityki auto-aktualizacji i Maintenance Service dla Firefoksa.
+- **Firefox** instaluje się zawsze do `Program Files` (plik INI) i nie tworzy własnego
+  skrótu na pulpicie — zostaje jeden publiczny skrót (koniec z „dwoma Firefoksami").
 - **Pomijanie** aplikacji już zainstalowanych w tej samej lub nowszej wersji.
 
 ### 🚀 Przygotuj komputer (offline) — jeden przycisk
@@ -56,7 +58,10 @@ instalacja zaznaczonych programów wyłącznie z lokalnego repo → opcjonalne w
 fabrycznego Office → otwarcie Windows Update. Przed startem sprawdzana jest kompletność plików.
 
 ### 🛠️ Narzędzia administracyjne
-- Zrzut `winget list` do logu i **ciche odinstalowanie** wskazanych ID.
+- Zrzut `winget list` do logu i **ciche odinstalowanie** wskazanych ID — patrz
+  [`docs/USUWANIE-WINGET.md`](docs/USUWANIE-WINGET.md).
+- **Weryfikuj domenę / GPO / ESET** — `gpupdate`, lista zastosowanych polityk domenowych
+  (czy komputer poprawnie czyta AD) oraz sprawdzenie, czy ESET z GPO już się zainstalował.
 - **Usuwanie pakietów Appx** dla wszystkich obecnych oraz nowych użytkowników (provisioned).
 - Ustawienie **maksymalnego stanu procesora 100%** (AC/DC) we wszystkich planach zasilania.
 - Wyłączenie **szybkiego uruchamiania** (`HiberbootEnabled=0`).
@@ -69,7 +74,11 @@ i uruchamia z uprawnieniami administratora. W zestawie bezpieczny przykład.
 
 ### 🏢 Domena Active Directory
 Zmiana nazwy komputera i **dołączenie do domeny** (z potwierdzeniem nietypowej nazwy),
-z propozycją restartu po zakończeniu.
+z propozycją restartu po zakończeniu. Dołączenie to **czyste podłączenie do istniejącego
+konta komputera** (jak kreator Ustawień Windows, bez tworzenia nowego konta) — nie rusza
+limitu `ms-DS-MachineAccountQuota`, więc nie pojawia się błąd „przekroczono limit kont
+komputerów" (kod 8557). Konto komputera musi być wcześniej utworzone w AD (wstępnie przez
+administratora lub pozostałe po poprzednim dołączeniu tej samej nazwy).
 
 ## Wymagania
 
@@ -110,7 +119,8 @@ Wdrozyciel.exe /download firefox,vlc,7zip
 
 | Plik | Rola |
 |------|------|
-| [`apps.json`](apps.json) | Lista programów: `wingetId`, argumenty instalatora, `directUrl`, skróty, `postInstall`. |
+| [`apps.json`](apps.json) | Lista programów: `wingetId`, argumenty instalatora, `directUrl`, `iniConfig` (INI dla instalatorów EXE), skróty, `postInstall`. |
+| [`docs/USUWANIE-WINGET.md`](docs/USUWANIE-WINGET.md) | Jak usuwać programy po Winget ID: zakresy machine/user, kody wyjścia, pozyskiwanie ID. |
 | [`winget-remove-defaults.txt`](winget-remove-defaults.txt) | Domyślne ID do cichego odinstalowania przez `winget uninstall`. |
 | [`appx-remove-defaults.txt`](appx-remove-defaults.txt) | Maski pakietów Appx do usunięcia. |
 | [`scripts/`](scripts/) | Twoje skrypty `*.ps1` (nazwa pliku = nazwa na liście). |
