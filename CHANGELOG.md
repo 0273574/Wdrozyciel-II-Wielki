@@ -6,9 +6,10 @@ Format oparty luźno na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 > Wersja aplikacji pozostaje **21.37** (celowo, na stałe).
 
-- **dołączanie do domeny**: próba dołączenia najpierw do **istniejącego** konta komputera
-  (jak kreator Ustawień Windows), a dopiero potem tworzenie nowego konta — usuwa błąd
-  „przekroczono limit kont komputerów" (kod 8557) i konflikt z kontem już istniejącym w AD;
+- **dołączanie do domeny**: czyste dołączenie do **istniejącego** konta komputera
+  (bez `NETSETUP_ACCT_CREATE`, dokładnie jak kreator Ustawień Windows) — nie rusza limitu
+  `ms-DS-MachineAccountQuota`, więc znika błąd „przekroczono limit kont komputerów" (kod 8557);
+  konto komputera musi być wcześniej utworzone w AD;
 - dodano czytelny opis kodu **8557** (limit `ms-DS-MachineAccountQuota`);
 - dodano przycisk **Weryfikuj domenę / GPO / ESET**: `gpupdate`, lista zastosowanych
   polityk domenowych (rejestr History + `gpresult`) oraz wykrycie ESET (usługa `ekrn`,

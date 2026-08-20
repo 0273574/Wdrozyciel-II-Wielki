@@ -1363,31 +1363,18 @@ namespace Wdrozyciel
 
         // Flagi NetJoinDomain (lmjoin.h)
         const uint NETSETUP_JOIN_DOMAIN = 0x00000001;
-        const uint NETSETUP_ACCT_CREATE = 0x00000002;
         const uint NETSETUP_DOMAIN_JOIN_IF_JOINED = 0x00000020;
 
-        // Najpierw probujemy dolaczyc do ISTNIEJACEGO konta komputera (jak kreator Ustawien Windows) -
-        // to nie zuzywa limitu ms-DS-MachineAccountQuota i dziala, gdy konto zostalo wstepnie utworzone
-        // lub pozostalo po poprzednim dolaczeniu. Dopiero gdy konto nie istnieje, tworzymy nowe.
+        // Czyste dolaczenie do ISTNIEJACEGO konta komputera (bez NETSETUP_ACCT_CREATE) - dokladnie
+        // tak jak kreator Ustawien Windows. Nie rusza limitu ms-DS-MachineAccountQuota, wiec nie
+        // pojawia sie blad "za duzo kont" (8557). Konto komputera musi byc wczesniej utworzone w AD
+        // (wstepnie przez administratora lub pozostale po poprzednim dolaczeniu tej samej nazwy).
         uint JoinDomain(string account, string pass)
         {
             uint joinExisting = NETSETUP_JOIN_DOMAIN | NETSETUP_DOMAIN_JOIN_IF_JOINED;            // 0x21
-            uint joinCreate = joinExisting | NETSETUP_ACCT_CREATE;                                // 0x23
-
             uint rc = Native.NetJoinDomain(null, Domain, null, account, pass, joinExisting);
-            if (rc == 0) { Log("Dolaczono do istniejacego konta komputera w domenie."); return 0; }
-
-            // Bledy terminalne (zle haslo, brak domeny, konflikt polaczen) - tworzenie konta nic nie da.
-            if (rc == 1326 || rc == 1355 || rc == 1219 || rc == 5)
-                return rc;
-
-            Log("Nie znaleziono konta komputera w domenie (kod " + rc + "); probuje utworzyc nowe konto...");
-            uint rc2 = Native.NetJoinDomain(null, Domain, null, account, pass, joinCreate);
-            if (rc2 == 0) { Log("Utworzono konto komputera i dolaczono do domeny."); return 0; }
-
-            // Zwroc blad z proby tworzenia, chyba ze to typowy "konto juz istnieje" -
-            // wtedy bardziej pomocny jest blad z pierwszej proby (dolaczenia do istniejacego).
-            return (rc2 == 2224) ? rc : rc2;
+            if (rc == 0) Log("Dolaczono do istniejacego konta komputera w domenie.");
+            return rc;
         }
 
         void RenameClicked()

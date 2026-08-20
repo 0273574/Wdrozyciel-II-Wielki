@@ -74,10 +74,11 @@ i uruchamia z uprawnieniami administratora. W zestawie bezpieczny przykład.
 
 ### 🏢 Domena Active Directory
 Zmiana nazwy komputera i **dołączenie do domeny** (z potwierdzeniem nietypowej nazwy),
-z propozycją restartu po zakończeniu. Dołączenie próbuje najpierw podłączyć się do
-**istniejącego konta komputera** (jak kreator Ustawień Windows), a dopiero potem utworzyć
-nowe — dzięki temu nie pojawia się błąd „przekroczono limit kont komputerów" (kod 8557),
-gdy konto zostało wcześniej utworzone w AD lub pozostało po poprzednim dołączeniu.
+z propozycją restartu po zakończeniu. Dołączenie to **czyste podłączenie do istniejącego
+konta komputera** (jak kreator Ustawień Windows, bez tworzenia nowego konta) — nie rusza
+limitu `ms-DS-MachineAccountQuota`, więc nie pojawia się błąd „przekroczono limit kont
+komputerów" (kod 8557). Konto komputera musi być wcześniej utworzone w AD (wstępnie przez
+administratora lub pozostałe po poprzednim dołączeniu tej samej nazwy).
 
 ## Wymagania
 
